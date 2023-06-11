@@ -1,0 +1,124 @@
+- name: Configure Velociraptor Server
+  hosts: velociraptor_servers
+  tasks:
+
+   - name: Accept all incoming requests temporarily
+     ansible.builtin.iptables:
+       chain: INPUT
+       policy: ACCEPT
+
+   - name: Create velociraptor opt directory if it does not exist
+     ansible.builtin.file:
+       path: /opt/velociraptor
+       state: directory
+       mode: '0700'
+
+   - name: Create velociraptor etc directory if it does not exist
+     ansible.builtin.file:
+       path: /etc/velociraptor
+       state: directory
+       mode: '0700'
+
+   - name: Download VR binary
+     ansible.builtin.uri:
+       url: https://github.com/Velocidex/velociraptor/releases/download/v0.6.9/velociraptor-v0.6.9-linux-amd64-musl
+       dest: /opt/velociraptor/velociraptor
+       mode: '0700'
+       status_code: [200,304]
+
+   - name: Create merge file
+     ansible.builtin.copy:
+       dest: /etc/velociraptor/merge.json
+       content: |
+        {
+          "Client": {
+            "server_urls":["https://{{ansible_eth0.ipv4.address}}/"],
+            "use_self_signed_ssl": true
+          },
+          "API": {
+            "bind_address": "0.0.0.0",
+            "hostname": "{{ansible_eth0.ipv4.address}}",
+            "bind_port": 8001
+          },
+          "GUI": {
+            "bind_address": "0.0.0.0",
+            "bind_port": 8889
+          },
+          "Frontend": {
+            "hostname": "{{ansible_eth0.ipv4.address}}",
+            "bind_address": "0.0.0.0",
+            "bind_port": 443
+          }
+        }
+
+   - name: Generate velociraptor server config
+     ansible.builtin.shell: /opt/velociraptor/velociraptor config generate --merge "$(cat /etc/velociraptor/merge.json)" > /etc/velociraptor/server.config.yaml
+
+   - name: Generate velociraptor client config
+     ansible.builtin.shell: /opt/velociraptor/velociraptor --config /etc/velociraptor/server.config.yaml config client > /etc/velociraptor/client.config.yaml
+
+   - name: Generate velociraptor debian file
+     ansible.builtin.shell: /opt/velociraptor/velociraptor --config /etc/velociraptor/server.config.yaml debian server
+
+   - name: Install debian package
+     ansible.builtin.shell: apt -o DPkg::Lock::Timeout=600 install ./velociraptor_*.deb
+
+   - name: Flush IP Tables
+     ansible.builtin.iptables:
+       chain: INPUT
+       flush: yes
+
+   - name: Allow SSH from known ips
+     ansible.builtin.iptables:
+       chain: INPUT
+       protocol: tcp
+       destination_port: 22
+       source: source_ip
+       jump: ACCEPT
+       comment: Allow VPN users to access the server via SSH
+
+   - name: Allow GUI from VPN
+     ansible.builtin.iptables:
+       chain: INPUT
+       protocol: tcp
+       destination_port: 8889
+       source: source_ip
+       jump: ACCEPT
+       comment: Allow VPN users to access the Velociraptor GUI
+
+   - name: Allow VR Client Comms
+     ansible.builtin.iptables:
+       chain: INPUT
+       protocol: tcp
+       destination_port: 443
+       jump: ACCEPT
+       comment: Allow external requests to velociraptor server
+
+   - name: Allow API from VPN
+     ansible.builtin.iptables:
+       chain: INPUT
+       protocol: tcp
+       destination_port: 8001
+       source: source_ip
+       jump: ACCEPT
+       comment: Allow VPN users to access the Velociraptor API
+
+   - name: Allow API from self
+     ansible.builtin.iptables:
+       chain: INPUT
+       protocol: tcp
+       destination_port: 8001
+       source: "{{ansible_eth0.ipv4.address}}"
+       jump: ACCEPT
+       comment: Allow VPN users to access the Velociraptor API
+
+   - name: Allow loopback interface
+     ansible.builtin.iptables:
+       chain: INPUT
+       in_interface: lo
+       jump: ACCEPT
+
+   - name: Deny all other inputs
+     ansible.builtin.iptables:
+       chain: INPUT
+       policy: DROP

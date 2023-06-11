@@ -1,0 +1,5 @@
+velociraptor_servers:
+  hosts:
+    vr_server_ip_or_hostname:
+      ansible_user: ansible
+      ansible_ssh_private_key_file: path_to_keyfile
