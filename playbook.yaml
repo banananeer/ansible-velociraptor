@@ -143,3 +143,18 @@
        chain: INPUT
        policy: DROP
      become: true
+
+   - name: Allow OUTPUT to VPN
+     ansible.builtin.iptables:
+       chain: INPUT
+       protocol: tcp
+       destination: source_ip
+       jump: ACCEPT
+       comment: Allow outflow to VPN
+     become: true
+
+   - name: Deny all other outflow
+     ansible.builtin.iptables:
+       chain: OUTPUT
+       policy: DROP
+     become: true
