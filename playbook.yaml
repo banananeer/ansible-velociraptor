@@ -1,11 +1,12 @@
 - name: Configure Velociraptor Server
-  hosts: velociraptor_servers
+  hosts: vr_servers
   tasks:
 
    - name: Accept all incoming requests temporarily
      ansible.builtin.iptables:
        chain: INPUT
        policy: ACCEPT
+     become: true
 
    - name: Create velociraptor opt directory if it does not exist
      ansible.builtin.file:
@@ -25,6 +26,14 @@
        dest: /opt/velociraptor/velociraptor
        mode: '0700'
        status_code: [200,304]
+
+   - name: Download VR MSI
+     ansible.builtin.uri:
+       url: https://github.com/Velocidex/velociraptor/releases/download/v0.6.9/velociraptor-v0.6.9-windows-amd64.msi
+       dest: /opt/velociraptor/velociraptor.msi
+       mode: '0700'
+       status_code: [ 200,304 ]
+     become: true
 
    - name: Create merge file
      ansible.builtin.copy:
@@ -59,6 +68,17 @@
 
    - name: Generate velociraptor debian file
      ansible.builtin.shell: /opt/velociraptor/velociraptor --config /etc/velociraptor/server.config.yaml debian server
+
+   - name: Generate velociraptor msi
+     ansible.builtin.shell: /opt/velociraptor/velociraptor config repack --msi /opt/velociraptor/velociraptor.msi /etc/velociraptor/client.config.yaml /opt/velociraptor/vr.msi
+     become: true
+
+   - name: Set permissions for VR MSI
+     ansible.builtin.file:
+       path: /opt/velociraptor/vr.msi
+       state: file
+       mode: '0777'
+     become: true
 
    - name: Install debian package
      ansible.builtin.shell: apt -o DPkg::Lock::Timeout=600 install ./velociraptor_*.deb
@@ -122,3 +142,4 @@
      ansible.builtin.iptables:
        chain: INPUT
        policy: DROP
+     become: true
