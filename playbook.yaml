@@ -8,6 +8,12 @@
        policy: ACCEPT
      become: true
 
+   - name: Accept all outgoing requests temporarily
+     ansible.builtin.iptables:
+       chain: OUTPUT
+       policy: ACCEPT
+     become: true
+
    - name: Create velociraptor opt directory if it does not exist
      ansible.builtin.file:
        path: /opt/velociraptor
