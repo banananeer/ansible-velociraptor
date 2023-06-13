@@ -136,7 +136,7 @@
        destination_port: 8001
        source: "{{ansible_eth0.ipv4.address}}"
        jump: ACCEPT
-       comment: Allow VPN users to access the Velociraptor API
+       comment: Allow self access the Velociraptor API
 
    - name: Allow loopback interface
      ansible.builtin.iptables:
