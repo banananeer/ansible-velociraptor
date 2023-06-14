@@ -93,24 +93,29 @@
      ansible.builtin.iptables:
        chain: INPUT
        flush: yes
+     become: true
 
    - name: Allow SSH from known ips
      ansible.builtin.iptables:
        chain: INPUT
        protocol: tcp
        destination_port: 22
-       source: source_ip
+       source: "{{ item }}"
        jump: ACCEPT
        comment: Allow VPN users to access the server via SSH
+     become: true
+     loop: "{{ vpn_egress_ips }}"
 
    - name: Allow GUI from VPN
      ansible.builtin.iptables:
        chain: INPUT
        protocol: tcp
        destination_port: 8889
-       source: source_ip
+       source: "{{ item }}"
        jump: ACCEPT
        comment: Allow VPN users to access the Velociraptor GUI
+     become: true
+     loop: "{{ vpn_egress_ips }}"
 
    - name: Allow VR Client Comms
      ansible.builtin.iptables:
@@ -119,15 +124,18 @@
        destination_port: 443
        jump: ACCEPT
        comment: Allow external requests to velociraptor server
+     become: true
 
    - name: Allow API from VPN
      ansible.builtin.iptables:
        chain: INPUT
        protocol: tcp
        destination_port: 8001
-       source: source_ip
+       source: "{{ item }}"
        jump: ACCEPT
        comment: Allow VPN users to access the Velociraptor API
+     loop: "{{ vpn_egress_ips }}"
+     become: true
 
    - name: Allow API from self
      ansible.builtin.iptables:
@@ -136,13 +144,15 @@
        destination_port: 8001
        source: "{{ansible_eth0.ipv4.address}}"
        jump: ACCEPT
-       comment: Allow self access the Velociraptor API
+       comment: Allow VPN users to access the Velociraptor API
+     become: true
 
    - name: Allow loopback interface
      ansible.builtin.iptables:
        chain: INPUT
        in_interface: lo
        jump: ACCEPT
+     become: true
 
    - name: Deny all other inputs
      ansible.builtin.iptables:
@@ -152,16 +162,17 @@
 
    - name: Allow OUTPUT to VPN
      ansible.builtin.iptables:
-       chain: INPUT
+       chain: OUTPUT
        protocol: tcp
-       destination: source_ip
+       destination: "{{ item }}"
        jump: ACCEPT
        comment: Allow outflow to VPN
      become: true
+     loop: "{{ vpn_egress_ips }}"
 
    - name: Allow OUTPUT to self
      ansible.builtin.iptables:
-       chain: INPUT
+       chain: OUTPUT
        protocol: tcp
        destination: "{{ansible_eth0.ipv4.address}}"
        jump: ACCEPT
@@ -173,3 +184,4 @@
        chain: OUTPUT
        policy: DROP
      become: true
+
