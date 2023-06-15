@@ -13,7 +13,7 @@
        chain: OUTPUT
        policy: ACCEPT
      become: true
-
+   
    - name: Create velociraptor opt directory if it does not exist
      ansible.builtin.file:
        path: /opt/velociraptor
@@ -95,6 +95,12 @@
        flush: yes
      become: true
 
+   - name: Flush IP Tables
+     ansible.builtin.iptables:
+       chain: OUTPUT
+       flush: yes
+     become: true
+
    - name: Allow SSH from known ips
      ansible.builtin.iptables:
        chain: INPUT
@@ -144,7 +150,7 @@
        destination_port: 8001
        source: "{{ansible_eth0.ipv4.address}}"
        jump: ACCEPT
-       comment: Allow VPN users to access the Velociraptor API
+       comment: Allow self to access the Velociraptor API
      become: true
 
    - name: Allow loopback interface
@@ -157,7 +163,6 @@
    - name: Allow from internal network
      ansible.builtin.iptables:
        chain: INPUT
-       protocol: tcp
        source: "{{ ansible_eth1.ipv4.address }}/{{ (ansible_eth1.ipv4.network + '/' + ansible_eth1.ipv4.netmask) | ipaddr('prefix') | string }}"
        jump: ACCEPT
        comment: Allow internal access to VR
@@ -186,6 +191,14 @@
        destination: "{{ansible_eth0.ipv4.address}}"
        jump: ACCEPT
        comment: Allow outflow to self
+     become: true
+
+   - name: Allow from internal network
+     ansible.builtin.iptables:
+       chain: OUTPUT
+       destination: "{{ ansible_eth1.ipv4.address }}/{{ (ansible_eth1.ipv4.network + '/' + ansible_eth1.ipv4.netmask) | ipaddr('prefix') | string }}"
+       jump: ACCEPT
+       comment: Allow internal access to VR
      become: true
 
    - name: Deny all other outflow
