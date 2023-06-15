@@ -154,6 +154,15 @@
        jump: ACCEPT
      become: true
 
+   - name: Allow from internal network
+     ansible.builtin.iptables:
+       chain: INPUT
+       protocol: tcp
+       source: "{{ ansible_eth1.ipv4.address }}/{{ (ansible_eth1.ipv4.network + '/' + ansible_eth1.ipv4.netmask) | ipaddr('prefix') | string }}"
+       jump: ACCEPT
+       comment: Allow internal access to VR
+     become: true
+
    - name: Deny all other inputs
      ansible.builtin.iptables:
        chain: INPUT
